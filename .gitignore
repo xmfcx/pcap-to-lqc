@@ -1,0 +1,10 @@
+node_modules/
+dist/
+data/
+.idea/
+*.lqc
+*.conversion.json
+.DS_Store
+docs/*.pdf
+docs/*.csv
+*.partial

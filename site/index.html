@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Convert Hesai XT32M2X PCAP captures to Applanix LQC locally in your browser. No upload.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>PCAP to LQC · Local LiDAR converter</title>
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <header class="masthead">
+    <a class="brand" href="./" aria-label="PCAP to LQC home"><img src="./icon.svg" alt="" width="36" height="36">pcap-to-lqc</a>
+    <span class="privacy"><span class="status-dot"></span> Files stay on this device</span>
+  </header>
+  <main>
+    <section class="intro">
+      <div><h1>PCAP to LQC.</h1><p>Hesai XT32M2X captures, ready for the next step.<br>Convert on your computer, directly in your browser.</p></div>
+      <div class="format-stamp" aria-hidden="true"><span>32 channels</span><svg viewBox="0 0 160 70"><path d="M10 60 Q80 -45 150 60 M28 60 Q80 -10 132 60 M48 60 Q80 24 112 60"/><path d="M80 60 L122 10"/><circle cx="80" cy="60" r="4"/><circle cx="109" cy="25" r="3"/></svg><span>One local workflow</span></div>
+    </section>
+    <div id="browser-notice" class="notice" hidden></div>
+    <div class="workspace">
+      <form id="converter-form" novalidate>
+        <fieldset id="inputs">
+          <section class="form-section">
+            <div class="section-heading"><h2><span class="step">1</span> Choose your capture</h2><button class="text-button" id="demo" type="button">Try a synthetic capture</button></div>
+            <label class="dropzone" id="dropzone" for="pcap">
+              <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M9 5h14l8 8v22H9z M23 5v9h8 M14 27l5-5 4 3 5-7"/></svg>
+              <strong id="capture-name">Select or drop a PCAP file</strong>
+              <span id="capture-detail">Classic Ethernet PCAP · XT32M2X protocol 6.1</span>
+              <input id="pcap" type="file" accept=".pcap,application/vnd.tcpdump.pcap" aria-describedby="capture-detail">
+            </label>
+            <div id="capture-info" class="capture-info" hidden></div>
+            <p id="demo-notice" class="notice" hidden>Synthetic test data is selected. It demonstrates the workflow; it is not a survey recording.</p>
+          </section>
+          <section class="form-section">
+            <div class="section-heading"><h2><span class="step">2</span> Add calibration</h2><span class="quiet">For the recorded sensor</span></div>
+            <div class="calibration-grid">
+              <label class="file-control" for="angles"><span>Angle correction</span><small>32 channels · elevation and azimuth</small><input type="file" id="angles" accept=".csv,text/csv"><span id="angle-name" class="file-name">Choose angle CSV</span></label>
+              <label class="file-control" for="firing"><span>Firing correction</span><small>Channel firing offsets in microseconds</small><input type="file" id="firing" accept=".csv,text/csv"><span id="firing-name" class="file-name">Choose firing CSV</span></label>
+            </div>
+            <button type="button" id="standard-firing" class="text-button firing-option">Use the manual’s standard XT32M2X firing offsets</button>
+            <p id="calibration-error" class="field-error" hidden></p>
+          </section>
+          <section class="form-section settings-section">
+            <h2><span class="step">3</span> Set the output</h2>
+            <div class="settings-grid">
+              <label for="version">LQC version<select id="version"><option value="1.1">LQC 1.1 · laser IDs + PCDA</option><option value="1.0">LQC 1.0</option></select></label>
+              <label for="time-scale">Sensor clock<select id="time-scale" required><option value="">Choose the recorded time scale</option><option value="utc">UTC · automatic leap-second offset</option><option value="gps">GPS time</option><option value="tai">TAI · GPS = TAI − 19 s</option><option value="custom">Custom GPS minus sensor offset</option></select></label>
+              <label for="custom-offset" id="custom-offset-label" hidden>GPS minus sensor (seconds)<input id="custom-offset" type="number" step="any" min="-86400" max="86400" value="18"></label>
+            </div>
+            <p class="hint">Use the clock configured on the sensor or PTP master. A valid date alone does not prove synchronization with your Applanix trajectory.</p>
+            <details class="advanced"><summary>Output conventions</summary>
+              <div class="settings-grid">
+                <label for="byte-order">Byte order<select id="byte-order"><option value="little">Little-endian (assumed)</option><option value="big">Big-endian</option></select></label>
+                <label for="rotation">Rotation, viewed from above<select id="rotation"><option value="1">Clockwise</option><option value="-1">Counterclockwise</option></select></label>
+              </div>
+              <p>XYZ stays in the sensor frame. Raw intensity is preserved. Coincident returns are merged and distinct recorded ranges are numbered nearest first. In LQC 1.1, all points participate in PCDA and channels map to laser IDs 0–31.</p>
+              <p>No mounting, trajectory, optical-center, or spot correction is applied. GPS week crossings and mixed sensor captures are rejected.</p>
+            </details>
+          </section>
+        </fieldset>
+      </form>
+      <aside class="conversion-panel" aria-label="Conversion status">
+        <div class="panel-top"><span class="local-mark">On your computer</span><h2 id="status-title">Ready when you are.</h2><p id="status-description" role="status" aria-live="polite">Choose a capture, add calibration, and select its clock time scale.</p></div>
+        <div class="progress-area"><progress id="progress" value="0" max="100" aria-label="Conversion progress"></progress><div class="progress-label"><span id="progress-text">Waiting for files</span><span id="percentage">0%</span></div></div>
+        <dl class="metrics"><div><dt>Points written</dt><dd id="points">0</dd></div><div><dt>Output size</dt><dd id="output-size">—</dd></div><div><dt>Elapsed</dt><dd id="elapsed">—</dd></div></dl>
+        <button id="convert" type="submit" form="converter-form" class="primary" disabled>Choose files to continue</button>
+        <button id="cancel" type="button" class="secondary" hidden>Cancel conversion</button>
+        <div id="downloads" class="downloads" hidden><a id="download-lqc" class="primary download-link" hidden>Save LQC file</a><a id="download-report" download="conversion.json">Save conversion report</a></div>
+        <p class="save-note" id="save-note">You’ll choose a save location before conversion starts. Large files are streamed to disk.</p>
+        <p class="compatibility">Preview release. LQC byte order and POSPac import compatibility need validation with your installation before production use.</p>
+      </aside>
+    </div>
+    <section class="how-it-works" aria-label="How local conversion works"><div><h3>Your files stay local</h3><p id="local-explanation">There is no upload service. File processing happens in this tab, and conversion needs no network connection once the page loads.</p></div><div><h3>Made for large captures</h3><p>Desktop Chrome and Edge can save progressively to disk. Other browsers offer a limited download mode for small conversions.</p></div><div><h3>A traceable result</h3><p>Save the companion report for GPS week, timing settings, calibration fingerprints, return handling, and packet gaps.</p></div></section>
+  </main>
+  <footer><span>XT32M2X · PCAP to LQC 1.0 / 1.1</span><a href="https://github.com/xmfcx/pcap-to-lqc" target="_blank" rel="noopener noreferrer">Source &amp; format notes</a></footer>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "pcap-to-lqc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local, streaming Hesai XT32M2X PCAP to Applanix LQC converter",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.mjs",
+    "convert": "node scripts/convert.mjs",
+    "test:browser": "node test/browser.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}
