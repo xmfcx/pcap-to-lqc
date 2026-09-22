@@ -290,6 +290,18 @@ h2 {
   gap:14px
 }
 
+.calibration-option {
+  min-width:0;
+}
+
+.file-action {
+  margin-top:8px;
+  color:var(--teal);
+  font-size:12px;
+  text-decoration:underline;
+  text-underline-offset:3px;
+}
+
 .file-control {
   position:relative;
   display:flex;
@@ -332,7 +344,7 @@ h2 {
   overflow-wrap:anywhere
 }
 
-.firing-option {
+.calibration-reset {
   margin-top:13px
 }
 

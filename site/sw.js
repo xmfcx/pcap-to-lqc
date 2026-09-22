@@ -1,6 +1,6 @@
 // Only application assets are cached. Selected files never enter this cache.
 const CACHE = 'pcap-to-lqc-dev';
-const ASSETS = ['./', './index.html', './style.css', './icon.svg', './app.js', './worker.js', './lib/calibration.js', './lib/converter.js', './lib/demo.js', './lib/pcap.js', './lib/time.js', './lib/xt32.js'];
+const ASSETS = ['./', './index.html', './style.css', './icon.svg', './app.js', './worker.js', './lib/calibration.js', './lib/default-calibration.js', './lib/converter.js', './lib/demo.js', './lib/pcap.js', './lib/time.js', './lib/xt32.js'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
 });

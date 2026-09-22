@@ -37,12 +37,18 @@
             <p id="demo-notice" class="notice" hidden>Synthetic test data is selected. It demonstrates the workflow; it is not a survey recording.</p>
           </section>
           <section class="form-section">
-            <div class="section-heading"><h2><span class="step">2</span> Add calibration</h2><span class="quiet">For the recorded sensor</span></div>
+            <div class="section-heading"><h2><span class="step">2</span> Calibration</h2><span class="quiet">Custom CSVs are optional</span></div>
             <div class="calibration-grid">
-              <label class="file-control" for="angles"><span>Angle correction</span><small>32 channels · elevation and azimuth</small><input type="file" id="angles" accept=".csv,text/csv"><span id="angle-name" class="file-name">Choose angle CSV</span></label>
-              <label class="file-control" for="firing"><span>Firing correction</span><small>Channel firing offsets in microseconds</small><input type="file" id="firing" accept=".csv,text/csv"><span id="firing-name" class="file-name">Choose firing CSV</span></label>
+              <div class="calibration-option">
+                <label class="file-control" for="angles"><span>Angle correction</span><small id="angle-kind">Default · sample sensor</small><input type="file" id="angles" accept=".csv,text/csv" aria-label="Choose a custom angle correction CSV"><span id="angle-name" class="file-name">sample-angle-correction.csv</span><span class="file-action">Choose another CSV</span></label>
+                <button type="button" id="restore-angle" class="text-button calibration-reset" hidden>Use default angle calibration</button>
+              </div>
+              <div class="calibration-option">
+                <label class="file-control" for="firing"><span>Firing correction</span><small id="firing-kind">Default · standard model timing</small><input type="file" id="firing" accept=".csv,text/csv" aria-label="Choose a custom firing correction CSV"><span id="firing-name" class="file-name">firetime-correction.csv</span><span class="file-action">Choose another CSV</span></label>
+                <button type="button" id="restore-firing" class="text-button calibration-reset" hidden>Use default firing offsets</button>
+              </div>
             </div>
-            <button type="button" id="standard-firing" class="text-button firing-option">Use the manual’s standard XT32M2X firing offsets</button>
+            <p id="angle-default-note" class="hint">The default angle calibration is from the sample sensor. For another unit, choose that sensor’s angle CSV.</p>
             <p id="calibration-error" class="field-error" hidden></p>
           </section>
           <section class="form-section settings-section">
@@ -65,7 +71,7 @@
         </fieldset>
       </form>
       <aside class="conversion-panel" aria-label="Conversion status">
-        <div class="panel-top"><span class="local-mark">On your computer</span><h2 id="status-title">Ready when you are.</h2><p id="status-description" role="status" aria-live="polite">Choose a capture, add calibration, and select its clock time scale.</p></div>
+        <div class="panel-top"><span class="local-mark">On your computer</span><h2 id="status-title">Ready when you are.</h2><p id="status-description" role="status" aria-live="polite">Choose a capture and select its clock time scale. Both calibrations are preselected.</p></div>
         <div class="progress-area"><progress id="progress" value="0" max="100" aria-label="Conversion progress"></progress><div class="progress-label"><span id="progress-text">Waiting for files</span><span id="percentage">0%</span></div></div>
         <dl class="metrics"><div><dt>Points written</dt><dd id="points">0</dd></div><div><dt>Output size</dt><dd id="output-size">—</dd></div><div><dt>Elapsed</dt><dd id="elapsed">—</dd></div></dl>
         <button id="convert" type="submit" form="converter-form" class="primary" disabled>Choose files to continue</button>

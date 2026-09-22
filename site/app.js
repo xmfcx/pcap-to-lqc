@@ -1,11 +1,15 @@
-import { parseCalibration, standardFiringCsv } from './lib/calibration.js';
+import { parseCalibration } from './lib/calibration.js';
+import { DEFAULT_CALIBRATION } from './lib/default-calibration.js';
 import { makeDemo } from './lib/demo.js';
 import { MAX_DOWNLOAD_BYTES } from './lib/converter.js';
 
 const $ = id => document.getElementById(id);
 const directSave = typeof window.showSaveFilePicker === 'function' && window.isSecureContext;
 const FALLBACK_INPUT_BYTES = 16 * 1024 * 1024;
-let capture = null, angleText = '', firingText = '', angleName = '', firingName = '';
+let capture = null;
+let angleText = DEFAULT_CALIBRATION.angle.text, firingText = DEFAULT_CALIBRATION.firing.text;
+let angleName = DEFAULT_CALIBRATION.angle.name, firingName = DEFAULT_CALIBRATION.firing.name;
+let angleOrigin = 'bundled', firingOrigin = 'bundled';
 let inspected = false, calibrationValid = false, inspecting = null, run = null, revision = 0;
 let resultUrls = [];
 let angleSource = null, firingSource = null;
@@ -31,7 +35,7 @@ function resetResults() {
 }
 function refresh() {
   if (run) return;
-  let reason = !capture ? 'Choose files to continue' : !inspected ? 'Inspecting capture…' : !calibrationValid ? 'Add calibration to continue' : !$('time-scale').value ? 'Select the sensor clock' : 'Convert & save LQC';
+  let reason = !capture ? 'Choose files to continue' : !inspected ? 'Inspecting capture…' : !calibrationValid ? 'Check calibration to continue' : !$('time-scale').value ? 'Select the sensor clock' : 'Convert & save LQC';
   const tooLarge = !directSave && capture?.size > FALLBACK_INPUT_BYTES;
   if (tooLarge) reason = 'Use Chrome or Edge for this file';
   const ready = capture && inspected && calibrationValid && $('time-scale').value && !tooLarge;
@@ -47,12 +51,30 @@ function validateCalibration() {
   }
   refresh();
 }
+function updateCalibrationLabels() {
+  $('angle-name').textContent = angleName;
+  $('firing-name').textContent = firingName;
+  $('angle-kind').textContent = angleOrigin === 'bundled' ? 'Default · sample sensor' : angleOrigin === 'synthetic' ? 'Synthetic demo calibration' : 'Custom angle CSV';
+  $('firing-kind').textContent = firingOrigin === 'bundled' ? 'Default · standard model timing' : firingOrigin === 'synthetic' ? 'Synthetic demo timing' : 'Custom firing CSV';
+  $('restore-angle').hidden = angleOrigin === 'bundled';
+  $('restore-firing').hidden = firingOrigin === 'bundled';
+  $('angle-default-note').hidden = angleOrigin !== 'bundled';
+}
+function useDefaultCalibration(which) {
+  calibrationTokens[which]++;
+  const value = DEFAULT_CALIBRATION[which];
+  if (which === 'angle') {
+    angleText = value.text; angleName = value.name; angleSource = null; angleOrigin = 'bundled'; $('angles').value = '';
+  } else {
+    firingText = value.text; firingName = value.name; firingSource = null; firingOrigin = 'bundled'; $('firing').value = '';
+  }
+  updateCalibrationLabels(); resetResults(); validateCalibration();
+}
 async function selectCapture(file, demo = false) {
   if (run || !file) return;
   if (!demo && !$('demo-notice').hidden) {
-    calibrationTokens.angle++; calibrationTokens.firing++;
-    angleText = ''; firingText = ''; angleName = ''; firingName = ''; angleSource = null; firingSource = null; calibrationValid = false;
-    $('angles').value = ''; $('firing').value = ''; $('angle-name').textContent = 'Choose angle CSV'; $('firing-name').textContent = 'Choose firing CSV';
+    if (angleOrigin === 'synthetic') useDefaultCalibration('angle');
+    if (firingOrigin === 'synthetic') useDefaultCalibration('firing');
     $('time-scale').value = ''; $('custom-offset-label').hidden = true;
   }
   const current = ++revision;
@@ -84,7 +106,7 @@ async function selectCapture(file, demo = false) {
         `Capture clock: ${info.captureDate} · not used for point timing`,
       ]) { const line = document.createElement('span'); line.textContent = text; $('capture-info').append(line); }
       $('capture-info').hidden = false;
-      status('Capture recognized.', 'XT32M2X detected. Add its calibration and choose the recorded clock time scale.'); refresh();
+      status('Capture recognized.', 'XT32M2X detected. Review the calibration and choose the recorded clock time scale.'); refresh();
     }
   };
   worker.postMessage({ type: 'inspect', file });
@@ -98,27 +120,29 @@ for (const [id, which] of [['angles', 'angle'], ['firing', 'firing']]) {
   $(id).addEventListener('change', async e => {
     const file = e.target.files[0]; if (!file || run) return;
     const token = ++calibrationTokens[which];
-    if (which === 'angle') { angleText = ''; angleName = ''; angleSource = null; } else { firingText = ''; firingName = ''; firingSource = null; }
+    if (which === 'angle') { angleText = ''; angleName = file.name; angleSource = null; angleOrigin = 'custom'; }
+    else { firingText = ''; firingName = file.name; firingSource = null; firingOrigin = 'custom'; }
+    updateCalibrationLabels();
     validateCalibration(); resetResults();
     try {
       if (file.size > 1024 * 1024) throw new Error('Calibration files must be smaller than 1 MiB. Choose a 32-channel CSV.');
       const text = await file.text(); if (token !== calibrationTokens[which] || run) return;
       if (which === 'angle') { angleText = text; angleName = file.name; angleSource = file; } else { firingText = text; firingName = file.name; firingSource = file; }
-      $(`${which}-name`).textContent = file.name; validateCalibration();
-    } catch (e) { $('calibration-error').textContent = e.message; $('calibration-error').hidden = false; }
+      updateCalibrationLabels(); validateCalibration();
+    } catch (e) {
+      if (token !== calibrationTokens[which] || run) return;
+      $('calibration-error').textContent = e.message; $('calibration-error').hidden = false;
+    }
   });
 }
-$('standard-firing').addEventListener('click', () => {
-  calibrationTokens.firing++;
-  firingSource = null; firingText = standardFiringCsv(); firingName = 'XT32M2X manual Appendix B.4';
-  $('firing-name').textContent = 'Standard XT32M2X offsets selected'; $('firing').value = ''; resetResults(); validateCalibration();
-});
+$('restore-angle').addEventListener('click', () => useDefaultCalibration('angle'));
+$('restore-firing').addEventListener('click', () => useDefaultCalibration('firing'));
 $('demo').addEventListener('click', () => {
   calibrationTokens.angle++; calibrationTokens.firing++;
   angleSource = null; firingSource = null;
   const demo = makeDemo(); angleText = demo.angleText; firingText = demo.firingText;
   angleName = 'synthetic-angle.csv'; firingName = 'manual-firing.csv';
-  $('angle-name').textContent = 'Synthetic angle calibration'; $('firing-name').textContent = 'Standard XT32M2X offsets';
+  angleOrigin = 'synthetic'; firingOrigin = 'synthetic'; updateCalibrationLabels();
   $('angles').value = ''; $('firing').value = ''; $('pcap').value = ''; $('time-scale').value = 'utc';
   $('custom-offset-label').hidden = true; validateCalibration();
   selectCapture(new File([demo.bytes], 'synthetic-xt32m2x.pcap'), true);
@@ -168,7 +192,7 @@ $('converter-form').addEventListener('submit', async e => {
       if ([capture.name, angleName, firingName].some(name => name && handle.name.toLowerCase() === name.toLowerCase())) throw new Error('Choose an output filename different from all input filenames.');
       context.writer = await handle.createWritable();
     }
-    const calibration = { angle: { name: angleName, sha256: await hash(angleText, angleSource) }, firing: { name: firingName, sha256: await hash(firingText, firingSource) } };
+    const calibration = { angle: { name: angleName, source: angleOrigin, sha256: await hash(angleText, angleSource) }, firing: { name: firingName, source: firingOrigin, sha256: await hash(firingText, firingSource) } };
     if (run !== context || context.ending) return;
     const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' }); context.worker = worker;
     $('cancel').hidden = false; $('cancel').disabled = false; $('convert').textContent = 'Converting locally…';
@@ -217,6 +241,9 @@ if (!window.isSecureContext) {
   $('browser-notice').hidden = false;
   $('browser-notice').textContent = 'Open this app over HTTPS or localhost. Local file saving and calibration fingerprints require a secure context.';
 }
+
+updateCalibrationLabels();
+validateCalibration();
 
 if ('serviceWorker' in navigator && window.isSecureContext) {
   navigator.serviceWorker.register(new URL('./sw.js', import.meta.url), { scope: './' })

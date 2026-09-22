@@ -15,14 +15,14 @@ npm start
 Open **http://127.0.0.1:4173**. Use **Try a synthetic capture** to exercise the complete workflow without your own data.
 
 1. Select an uncompressed `.pcap` file.
-2. Select the recorded sensor's 32-channel angle correction CSV and firing correction CSV. Standard XT32M2X firing offsets from the manual are also available.
+2. Review the preselected calibration: the bundled sample sensor angle CSV and standard XT32M2X firing CSV. Optionally select your own CSV for either field; each override has a button to restore its default. For another sensor unit, use that unit's angle calibration.
 3. Choose the sensor's recorded time scale and LQC version.
 4. Select **Convert & save LQC**, choose an output location, and keep the tab open.
 5. Save the companion JSON report, which records calibration fingerprints, GPS week, timing settings, point counts, and packet gaps.
 
 Desktop **Chrome and Edge** support progressive saving to disk. Other browsers use an in-memory download limited to **16 MiB input / 128 MiB output**. Large files need sufficient free disk space; output can be much larger than input. A browser may also need temporary disk space while committing a file.
 
-Once the app reports that it is cached for offline use, conversion works with the network disconnected. The service worker caches application assets only. Selected captures and calibration files never enter that cache. The page blocks application network connections with a Content Security Policy and loads no third-party scripts, fonts, or analytics.
+Once the app reports that it is cached for offline use, conversion works with the network disconnected. The service worker caches application assets, including the bundled calibration defaults. Selected captures and calibration files never enter that cache. The page blocks application network connections with a Content Security Policy and loads no third-party scripts, fonts, or analytics.
 
 ## GitHub Pages
 
@@ -34,7 +34,7 @@ In the repository's **Settings → Pages**, select **GitHub Actions** as the sou
 npm run build
 ```
 
-Only `site/` is copied to `dist/` and published. Local captures, reference PDFs, sensor calibration CSVs, tests, and command-line tools are excluded from the deployed site. Relative asset paths and service-worker scope support GitHub Pages project URLs.
+The build publishes `site/` plus a generated module containing the two reference CSVs in `calibration/XT32M2X/`. Those CSVs are the single source of truth for the preselected defaults; the generated module is ignored by Git. `npm start` regenerates it before serving the app. User-selected captures and calibration overrides, reference PDFs, tests, and command-line tools are excluded from the deployed site. Relative asset paths and service-worker scope support GitHub Pages project URLs.
 
 ## Supported conversion
 
@@ -57,6 +57,7 @@ No optical-center, spot, mounting, trajectory, or georeferencing corrections are
 The first version uses a small JavaScript decoder based on the supplied manual, rather than porting the entire C++ Hesai SDK. Browser and command-line paths share the same conversion engine. A streaming PCAP reader and approximately 1 MiB output batches keep memory bounded; the worker waits for each write before sending another batch. WebAssembly can be introduced later if profiling justifies it.
 
 ```text
+calibration/  Reference calibration CSVs, grouped by sensor model
 site/lib/     PCAP reader, calibration, XT32M2X decoding, GPS time, LQC writer
 site/         Browser interface, worker, and offline application cache
 scripts/      Local server, static build, and command-line converter
@@ -71,7 +72,7 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-For an installed Chrome, set `BROWSER_PATH=/path/to/chrome` when running browser tests. Browser tests cover offline conversion, byte-for-byte agreement with the native engine, a real browser writable stream, cancellation, disk errors, invalid input, and mobile layout. The save picker is substituted during automation; the writable-stream test uses browser-private storage.
+For an installed Chrome, set `BROWSER_PATH=/path/to/chrome` when running browser tests. Browser tests cover offline conversion, byte-for-byte agreement with the native engine, a real browser writable stream, preselected calibration and optional overrides, calibration source/hash reporting, independent default resets, cancellation, disk errors, invalid input, and mobile layout. The save picker is substituted during automation; the writable-stream test uses browser-private storage.
 
 The supplied 3.15 GiB sample was fully decoded with UTC selected as a test assumption:
 
@@ -92,23 +93,23 @@ An independent Python reference also checked every field of 702,176 output recor
 ```sh
 npm run convert -- \
   data/XT32M2X/pcap/XT32M2X_first_last_strongest_urban.pcap \
-  docs/XT32M2X_Angle_Correction_File-1.csv \
-  docs/XT32M2X_Firetime_Correction_File.csv.csv \
+  calibration/XT32M2X/sample-angle-correction.csv \
+  calibration/XT32M2X/firetime-correction.csv \
   /tmp/capture.lqc --time-scale utc
 ```
 
 Use the actual recorded time scale. Additional options are `--version 1.0|1.1`, `--byte-order little|big`, `--rotation 1|-1`, and `--time-scale custom --offset SECONDS`. `--validate-only` processes and hashes the complete output without saving it. Existing output files are never overwritten; successful conversion creates a companion `.conversion.json` report.
 
-## Local reference material
+## Reference material
 
-These supplied files remain local and are ignored by Git:
+The two supplied calibration CSVs are tracked under `calibration/XT32M2X/`. Captures, archives, and reference PDFs remain local and are ignored by Git. The app preselects both files. The angle CSV belongs to the sample recording and is not a universal calibration for all XT32M2X units; use the calibration supplied for your sensor. The firing CSV contains the model's standard XT32M2X channel timing offsets. Conversion reports identify each calibration as bundled, custom, or synthetic and include its name and SHA-256 fingerprint.
 
 | Path | Purpose |
 | --- | --- |
 | `data/XT32M2X/pcap/*.pcap` and `*.zip` | Real capture and its archive. |
 | `docs/XT32M2X_User_Manual_X03-en-260710.pdf` | Packet layout (§3.1), coordinates (§3.1.4), and timing (Appendix B). |
-| `docs/XT32M2X_Angle_Correction_File-1.csv` | Sample sensor's 32-channel angle calibration. |
-| `docs/XT32M2X_Firetime_Correction_File.csv.csv` | Firing offsets, in microseconds. |
+| `calibration/XT32M2X/sample-angle-correction.csv` | Tracked: sample sensor's 32-channel angle calibration. |
+| `calibration/XT32M2X/firetime-correction.csv` | Tracked: standard XT32M2X firing offsets, in microseconds. |
 | `docs/Tech Note LiDAR QC L5D and LQC Format.pdf` | LQC 1.0/1.1 field layouts and LAS-style flags. |
 
 The sample's PCAP clock dates to 1970, while its embedded sensor calendar dates to 2020. PCAP capture time is therefore shown for inspection but is never used for point timing. No matching Applanix trajectory is included.
